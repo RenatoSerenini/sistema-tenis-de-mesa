@@ -353,7 +353,7 @@
                 justify-content: center;
                 align-items: center;
                 z-index: 10000;
-                background: rgba(0, 0, 0, 0.6);
+                background: transparent;
                 padding: 18px;
                 box-sizing: border-box;
             `;
@@ -401,7 +401,10 @@
      * Fecha o modal atual
      */
     function closeModal() {
-        const container = getOrCreateContainer();
+        const container = document.createElement('div');
+container.id = 'modal-container';
+container.style.cssText = `position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: none; justify-content: center; align-items: center; z-index: 10000; padding: 18px; box-sizing: border-box; background: rgba(0, 0, 0, 0.6);`;
+document.body.appendChild(container);
         container.innerHTML = '';
         container.style.display = 'none';
     }
@@ -410,11 +413,14 @@
      * Abre um modal simples (Tipo A)
      */
     async function openSimpleModal(config) {
-        const container = getOrCreateContainer();
+        const container = document.createElement('div');
+container.id = 'modal-container';
+container.style.cssText = `position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: none; justify-content: center; align-items: center; z-index: 10000; padding: 18px; box-sizing: border-box; background: rgba(0, 0, 0, 0.6);`;
+document.body.appendChild(container);
 
         try {
             // Aplica isolamento para proteger o Modal Manager
-            applyIsolationCSS();
+            // Aplica isolamento apenas para o container do modal, não para o body
 
             // Carrega CSS
             await loadCSS(config.css);
@@ -448,11 +454,14 @@
      * Abre a Parte 1 - Lista de Confrontos
      */
     async function openConfrontosParte1() {
-        const container = getOrCreateContainer();
+        const container = document.createElement('div');
+container.id = 'modal-container';
+container.style.cssText = `position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: none; justify-content: center; align-items: center; z-index: 10000; padding: 18px; box-sizing: border-box; background: rgba(0, 0, 0, 0.6);`;
+document.body.appendChild(container);
 
         try {
             // Aplica isolamento para proteger o Modal Manager
-            applyIsolationCSS();
+            // Aplica isolamento apenas para o container do modal, não para o body
 
             await loadCSS(confrontosFlow.parte1.css);
             const html = await loadHTML(confrontosFlow.parte1.html);
@@ -477,7 +486,10 @@
      * Configura cliques nos confrontos da Parte 1
      */
     function setupConfrontosClick() {
-        const container = getOrCreateContainer();
+        const container = document.createElement('div');
+container.id = 'modal-container';
+container.style.cssText = `position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: none; justify-content: center; align-items: center; z-index: 10000; padding: 18px; box-sizing: border-box; background: rgba(0, 0, 0, 0.6);`;
+document.body.appendChild(container);
         const confrontos = container.querySelectorAll('.confronto');
 
         confrontos.forEach((confronto, index) => {
@@ -507,11 +519,14 @@
      * Abre a Parte 2 - Escolha de Sets
      */
     async function openConfrontosParte2() {
-        const container = getOrCreateContainer();
+        const container = document.createElement('div');
+container.id = 'modal-container';
+container.style.cssText = `position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: none; justify-content: center; align-items: center; z-index: 10000; padding: 18px; box-sizing: border-box; background: rgba(0, 0, 0, 0.6);`;
+document.body.appendChild(container);
 
         try {
             // Aplica isolamento para proteger o Modal Manager
-            applyIsolationCSS();
+            // Aplica isolamento apenas para o container do modal, não para o body
 
             await loadCSS(confrontosFlow.parte2.css);
             const html = await loadHTML(confrontosFlow.parte2.html);
@@ -542,7 +557,10 @@
      * Configura botões de escolha de sets
      */
     function setupSetsButtons() {
-        const container = getOrCreateContainer();
+        const container = document.createElement('div');
+container.id = 'modal-container';
+container.style.cssText = `position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: none; justify-content: center; align-items: center; z-index: 10000; padding: 18px; box-sizing: border-box; background: rgba(0, 0, 0, 0.6);`;
+document.body.appendChild(container);
         const btn3Sets = container.querySelector('.btn-3-sets');
         const btn5Sets = container.querySelector('.btn-5-sets');
 
@@ -565,11 +583,14 @@
      * Abre a Parte 3 - Registro de Resultado
      */
     async function openConfrontosParte3() {
-        const container = getOrCreateContainer();
+        const container = document.createElement('div');
+container.id = 'modal-container';
+container.style.cssText = `position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: none; justify-content: center; align-items: center; z-index: 10000; padding: 18px; box-sizing: border-box; background: rgba(0, 0, 0, 0.6);`;
+document.body.appendChild(container);
 
         try {
             // Aplica isolamento para proteger o Modal Manager
-            applyIsolationCSS();
+            // Aplica isolamento apenas para o container do modal, não para o body
 
             await loadCSS(confrontosFlow.parte3.css);
             const html = await loadHTML(confrontosFlow.parte3.html);
@@ -606,7 +627,10 @@
      * Configura nomes dos jogadores no formulário
      */
     function setupJogadores() {
-        const container = getOrCreateContainer();
+        const container = document.createElement('div');
+container.id = 'modal-container';
+container.style.cssText = `position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: none; justify-content: center; align-items: center; z-index: 10000; padding: 18px; box-sizing: border-box; background: rgba(0, 0, 0, 0.6);`;
+document.body.appendChild(container);
 
         // Atualiza nomes dos jogadores na área de confronto
         const jogador1El = container.querySelector('.jogador-1, [data-jogador="1"]');
@@ -631,7 +655,10 @@
      * Configura campos de sets (3 ou 5)
      */
     function setupSetsFields() {
-        const container = getOrCreateContainer();
+        const container = document.createElement('div');
+container.id = 'modal-container';
+container.style.cssText = `position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: none; justify-content: center; align-items: center; z-index: 10000; padding: 18px; box-sizing: border-box; background: rgba(0, 0, 0, 0.6);`;
+document.body.appendChild(container);
         const totalSets = state.setsEscolhidos || 3;
 
         // Configura cada set
@@ -664,7 +691,10 @@
      * Configura botão de enviar resultado
      */
     function setupEnviarResultado() {
-        const container = getOrCreateContainer();
+        const container = document.createElement('div');
+container.id = 'modal-container';
+container.style.cssText = `position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: none; justify-content: center; align-items: center; z-index: 10000; padding: 18px; box-sizing: border-box; background: rgba(0, 0, 0, 0.6);`;
+document.body.appendChild(container);
         const btnEnviar = container.querySelector('.botao-enviar, .btn-enviar');
 
         if (btnEnviar) {
@@ -688,7 +718,10 @@
      * Coleta dados do resultado
      */
     function collectResultado() {
-        const container = getOrCreateContainer();
+        const container = document.createElement('div');
+container.id = 'modal-container';
+container.style.cssText = `position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: none; justify-content: center; align-items: center; z-index: 10000; padding: 18px; box-sizing: border-box; background: rgba(0, 0, 0, 0.6);`;
+document.body.appendChild(container);
         const totalSets = state.setsEscolhidos || 3;
 
         const sets = [];
