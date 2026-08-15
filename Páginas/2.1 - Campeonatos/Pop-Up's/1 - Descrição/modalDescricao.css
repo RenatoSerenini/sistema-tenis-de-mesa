@@ -1,0 +1,287 @@
+/* Reset */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* Variáveis */
+:root {
+    --color-surface: #ffffff;
+    --color-stage-top: #f5f8fb;
+    --color-stage-bottom: #e7eef3;
+    --color-header-start: #0f5f3a;
+    --color-header-end: #0a4a2d;
+    --color-title: #ffffff;
+    --color-text-main: #111827;
+    --color-text-soft: #374151;
+    --color-border: #d6dde5;
+    --color-shadow: 0 16px 40px rgba(15, 39, 63, 0.16);
+    --color-badge-bg: #d8f3df;
+    --color-badge-text: #1f6b3d;
+    --color-button-bg: #f9fafb;
+    --color-button-border: #cfd6df;
+    --color-button-text: #1f2937;
+    --radius-lg: 14px;
+    --radius-md: 10px;
+    --radius-sm: 6px;
+}
+
+/* Body */
+body {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    font-family: "Segoe UI Variable Text", "Segoe UI", Tahoma, Verdana, sans-serif;
+    color: var(--color-text-main);
+    background:
+        radial-gradient(circle at top right, rgba(15, 95, 58, 0.08), transparent 40%),
+        linear-gradient(165deg, var(--color-stage-top), var(--color-stage-bottom));
+}
+
+.modal-stage {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
+/* Modal */
+.modal {
+    width: min(100%, 360px);
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--color-shadow);
+    overflow: hidden;
+    animation: modal-rise 0.45s ease both;
+}
+
+/* Header */
+.modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 16px;
+    background: linear-gradient(135deg, var(--color-header-start), var(--color-header-end));
+}
+
+.modal-title {
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.25;
+    color: var(--color-title);
+}
+
+.modal-close {
+    border: 0;
+    background: transparent;
+    color: var(--color-title);
+    font-size: 1.35rem;
+    line-height: 1;
+    cursor: pointer;
+    opacity: 0.9;
+    transition: background-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease;
+}
+
+.modal-close:hover,
+.modal-close:focus-visible {
+    opacity: 1;
+    transform: scale(1.06);
+    background-color: rgba(255, 255, 255, 0.12);
+    border-radius: 50%;
+}
+
+/* Body */
+.modal-body {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 16px;
+}
+
+.modal-icon {
+    width: 44px;
+    flex-shrink: 0;
+    margin-top: 4px;
+}
+
+.modal-icon img {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+.modal-details {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* Campos */
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    border-radius: 8px;
+    padding: 3px 6px;
+    margin: -3px -6px;
+    transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+.field:hover {
+    background-color: rgba(15, 95, 58, 0.06);
+    transform: translateX(2px);
+}
+
+.field-title {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--color-text-main);
+}
+
+.field-value {
+    font-size: 0.93rem;
+    line-height: 1.35;
+    color: var(--color-text-soft);
+}
+
+.field-description {
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+/* Badge */
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background-color: var(--color-badge-bg);
+    color: var(--color-badge-text);
+    font-size: 0.83rem;
+    font-weight: 600;
+    width: fit-content;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.field:hover .status-badge {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(15, 95, 58, 0.16);
+}
+
+/* Footer */
+.modal-footer {
+    display: flex;
+    justify-content: center;
+    padding: 0 16px 16px;
+}
+
+.modal-button {
+    min-width: 98px;
+    padding: 6px 18px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-button-border);
+    background-color: var(--color-button-bg);
+    color: var(--color-button-text);
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.modal-button:hover,
+.modal-button:focus-visible {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 16px rgba(15, 39, 63, 0.14);
+    background-color: #ffffff;
+}
+
+.modal-details .field:nth-child(1) { animation: item-fade 0.35s ease 0.12s both; }
+.modal-details .field:nth-child(2) { animation: item-fade 0.35s ease 0.18s both; }
+.modal-details .field:nth-child(3) { animation: item-fade 0.35s ease 0.24s both; }
+.modal-details .field:nth-child(4) { animation: item-fade 0.35s ease 0.3s both; }
+.modal-details .field:nth-child(5) { animation: item-fade 0.35s ease 0.36s both; }
+.modal-details .field:nth-child(6) { animation: item-fade 0.35s ease 0.42s both; }
+
+@keyframes modal-rise {
+    from {
+        opacity: 0;
+        transform: translateY(8px) scale(0.985);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@keyframes item-fade {
+    from {
+        opacity: 0;
+        transform: translateY(5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation: none !important;
+        transition: none !important;
+    }
+}
+
+/* Responsividade */
+@media (max-width: 540px) {
+    body {
+        padding: 14px;
+    }
+
+    .modal {
+        width: min(100%, 340px);
+    }
+
+    .modal-body {
+        gap: 12px;
+        padding: 14px;
+    }
+
+    .modal-icon {
+        width: 38px;
+    }
+
+    .field-value {
+        font-size: 0.9rem;
+    }
+}
+
+@media (max-width: 360px) {
+    .modal-title {
+        font-size: 0.92rem;
+    }
+
+    .modal-close {
+        font-size: 1.2rem;
+    }
+
+    .field-title {
+        font-size: 0.78rem;
+    }
+
+    .field-value {
+        font-size: 0.86rem;
+    }
+
+    .modal-button {
+        min-width: 90px;
+        padding: 6px 14px;
+    }
+}

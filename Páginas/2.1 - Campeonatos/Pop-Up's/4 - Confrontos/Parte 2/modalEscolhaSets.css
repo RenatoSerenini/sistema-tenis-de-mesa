@@ -1,0 +1,217 @@
+/* Reset */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html,
+body,
+article,
+header,
+main,
+section,
+h1,
+p,
+button {
+    margin: 0;
+    padding: 0;
+}
+
+button {
+    font: inherit;
+}
+
+/* Variáveis */
+:root {
+    --color-bg: #eaf0ec;
+    --color-surface: #ffffff;
+    --color-surface-soft: #f7f9f8;
+    --color-header-top: #155b39;
+    --color-header-bottom: #0f482d;
+    --color-text: #243128;
+    --color-muted: #637068;
+    --color-border: #d9e3dd;
+    --color-accent: #1d7a4b;
+    --color-accent-hover: #18673f;
+    --shadow-modal: 0 22px 48px rgba(18, 51, 33, 0.14);
+    --shadow-soft: 0 8px 16px rgba(29, 46, 35, 0.08);
+    --radius-modal: 16px;
+    --radius-control: 12px;
+    --font-base: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* Body */
+body {
+    min-height: 100vh;
+    padding: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background:
+        radial-gradient(circle at 15% 10%, rgba(20, 92, 57, 0.14), transparent 30%),
+        linear-gradient(180deg, #f7faf8 0%, var(--color-bg) 100%);
+    color: var(--color-text);
+    font-family: var(--font-base);
+}
+
+/* Modal */
+.modal-escolha-sets {
+    width: min(100%, 380px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--color-surface);
+    border: 1px solid rgba(20, 92, 57, 0.14);
+    border-radius: var(--radius-modal);
+    box-shadow: var(--shadow-modal);
+    animation: modal-rise 0.4s ease both;
+}
+
+/* Header */
+.modal-header {
+    min-height: 58px;
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    background: linear-gradient(180deg, var(--color-header-top), var(--color-header-bottom));
+}
+
+.modal-title {
+    font-size: 1.02rem;
+    font-weight: 700;
+    color: #ffffff;
+}
+
+.modal-close {
+    width: 30px;
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.86);
+    font-size: 1.35rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: transform 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+}
+
+.modal-close:hover,
+.modal-close:focus-visible {
+    transform: scale(1.06);
+    background-color: rgba(255, 255, 255, 0.12);
+    color: #ffffff;
+}
+
+.modal-close:focus-visible,
+.botao-set:focus-visible {
+    outline: 2px solid rgba(29, 122, 75, 0.35);
+    outline-offset: 2px;
+}
+
+/* Conteúdo */
+.modal-body {
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.modal-descricao {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--color-muted);
+    text-align: center;
+}
+
+.opcoes-sets {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.botao-set {
+    min-height: 54px;
+    width: 100%;
+    padding: 14px 18px;
+    border: 1px solid #cfdad3;
+    border-radius: var(--radius-control);
+    background: linear-gradient(180deg, #ffffff 0%, var(--color-surface-soft) 100%);
+    color: #1f3528;
+    font-size: 0.98rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    box-shadow: var(--shadow-soft);
+    transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease, background-color 0.22s ease;
+}
+
+.botao-set:hover {
+    transform: translateY(-1px);
+    border-color: #b9c8be;
+    box-shadow: 0 10px 18px rgba(18, 51, 33, 0.12);
+}
+
+.botao-set:focus-visible {
+    transform: translateY(-1px);
+}
+
+.botao-set:active {
+    transform: translateY(0);
+}
+
+.btn-3-sets {
+    color: var(--color-accent);
+}
+
+.btn-5-sets {
+    color: #174f33;
+}
+
+.btn-3-sets:hover,
+.btn-3-sets:focus-visible {
+    border-color: rgba(29, 122, 75, 0.34);
+    background: linear-gradient(180deg, #f7fcf9 0%, #edf7f1 100%);
+}
+
+.btn-5-sets:hover,
+.btn-5-sets:focus-visible {
+    border-color: rgba(23, 79, 51, 0.28);
+    background: linear-gradient(180deg, #f8fbf9 0%, #eef4f1 100%);
+}
+
+@keyframes modal-rise {
+    from {
+        opacity: 0;
+        transform: translateY(14px) scale(0.985);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* Responsividade */
+@media (max-width: 420px) {
+    body {
+        padding: 12px;
+    }
+
+    .modal-escolha-sets {
+        width: 100%;
+    }
+
+    .modal-header {
+        padding-inline: 14px;
+    }
+
+    .modal-body {
+        padding: 16px;
+    }
+}
