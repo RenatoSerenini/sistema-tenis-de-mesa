@@ -52,7 +52,7 @@ body {
     display: grid;
     place-items: center;
     padding: 14px;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.26), var(--overlay-color));
+    background: rgba(0, 0, 0, 0.6);
 }
 
 .modal-inscritos {
