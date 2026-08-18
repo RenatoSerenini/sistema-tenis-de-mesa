@@ -347,7 +347,6 @@ input {
   object-fit: contain;
 }
 
-
 .champ-card {
 	background: linear-gradient(135deg, var(--green-800), var(--green-950) 85%);
 	border-radius: 14px;
@@ -367,13 +366,21 @@ input {
 }
 
 .champ-icon {
-	width: 100px;
-	height: 100px;
-	color: #fff;
-	background: #fff;
-	border-radius: 50%;
-	padding: 12px;
-	box-sizing: border-box;
+  width: clamp(90px, 10vw, 110px);
+  height: clamp(90px, 10vw, 110px);
+  background: #fff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: visible;
+}
+
+.champ-icon img {
+  width: 140%;
+  height: auto;
+  object-fit: contain;
+  transform: scale(1.36);
 }
 
 .champ-title {
@@ -429,11 +436,11 @@ input {
 }
 
 .champ-side-icon {
-	width: 38px;
-	height: 38px;
+	width: 54px;
+	height: 54px;
 	background: #fff;
 	border-radius: 50%;
-	padding: 7px;
+	padding: 0px;
 	box-sizing: border-box;
 }
 
