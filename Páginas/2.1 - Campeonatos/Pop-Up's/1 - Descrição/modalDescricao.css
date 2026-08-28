@@ -1,5 +1,6 @@
 /* Reset */
-* {
+.modal,
+.modal * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
@@ -27,19 +28,7 @@
     --radius-sm: 6px;
 }
 
-/* Body */
-body {
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 24px;
-    font-family: "Segoe UI Variable Text", "Segoe UI", Tahoma, Verdana, sans-serif;
-    color: var(--color-text-main);
-    background:
-        radial-gradient(circle at top right, rgba(15, 95, 58, 0.08), transparent 40%),
-        linear-gradient(165deg, var(--color-stage-top), var(--color-stage-bottom));
-}
+/* Body styles are handled by the modal manager to avoid conflicts */
 
 .modal-stage {
     width: 100%;
