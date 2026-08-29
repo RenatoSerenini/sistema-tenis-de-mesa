@@ -16,17 +16,17 @@
     const MODAL_IFRAME_CLASS = 'modal-manager-iframe';
 
     const modalMapping = {
-        'btn-descricao': { html: "Pop-Up's/1 - Descrição/modalDescricao.html" },
-        'btn-inscritos': { html: "Pop-Up's/2 - Inscritos/modalListaInscritos.html" },
-        'btn-grupos': { html: "Pop-Up's/3 - Pontuação/modalGruposPontuacoes.html" },
-        'btn-chaveamento': { html: "Pop-Up's/5 - Chaveamento/modalChaveamento.html" },
-        'btn-resultados': { html: "Pop-Up's/6 - Pódio/modalResultadosFinais.html" }
+        'btn-descricao': { html: "Pop-Up's/1 - Descrição/modalDescricao.html", width: '500px', height: '500px' },
+        'btn-inscritos': { html: "Pop-Up's/2 - Inscritos/modalListaInscritos.html", width: '570px', height: '570px' },
+        'btn-grupos': { html: "Pop-Up's/3 - Pontuação/modalGruposPontuacoes.html", width: '490px', height: '490px' },
+        'btn-chaveamento': { html: "Pop-Up's/5 - Chaveamento/modalChaveamento.html", width: '800px', height: '700px' },
+        'btn-resultados': { html: "Pop-Up's/6 - Pódio/modalResultadosFinais.html", width: '500px', height: '500px' }
     };
 
     const confrontosFlow = {
-        parte1: { html: "Pop-Up's/4 - Confrontos/Parte 1/modalConfrontos.html" },
-        parte2: { html: "Pop-Up's/4 - Confrontos/Parte 2/modalEscolhaSets.html" },
-        parte3: { html: "Pop-Up's/4 - Confrontos/Parte 3/modalRegistroResultado.html" }
+        parte1: { html: "Pop-Up's/4 - Confrontos/Parte 1/modalConfrontos.html", width: '600px', height: '600px' },
+        parte2: { html: "Pop-Up's/4 - Confrontos/Parte 2/modalEscolhaSets.html", width: '400px', height: '400px' },
+        parte3: { html: "Pop-Up's/4 - Confrontos/Parte 3/modalRegistroResultado.html", width: '620px', height: '620px' }
     };
 
     const state = {
@@ -75,7 +75,9 @@
             padding: '18px',
             boxSizing: 'border-box',
             overflow: 'hidden',
-            pointerEvents: 'none'
+            pointerEvents: 'none',
+            alignItems: 'center',
+            justifyContent: 'center'
         });
 
         container.setAttribute('aria-hidden', 'true');
@@ -83,7 +85,7 @@
 
     function showContainer(container) {
         prepareContainer(container);
-        container.style.display = 'block';
+        container.style.display = 'flex';
         container.style.pointerEvents = 'auto';
         container.setAttribute('aria-hidden', 'false');
     }
@@ -111,25 +113,26 @@
     // Iframe
     // ------------------------------------------------------------
 
-    function createIframe(htmlPath) {
+    function createIframe(config) {
         const iframe = document.createElement('iframe');
+        const width = config?.width || '500px';
+        const height = config?.height || '500px';
 
         iframe.className = MODAL_IFRAME_CLASS;
-        iframe.src = htmlPath;
-
-        // Sem sandbox: os HTMLs fazem parte do mesmo projeto e o Modal Manager
-        // precisa interagir com o documento interno durante o fluxo de Confrontos.
+        iframe.src = config.html;
         iframe.setAttribute('title', 'Modal');
         iframe.setAttribute('frameborder', '0');
 
         Object.assign(iframe.style, {
-            position: 'absolute',
-            inset: '0',
-            width: '100%',
-            height: '100%',
+            position: 'relative',
+            width,
+            height,
+            maxWidth: 'calc(100vw - 36px)',
+            maxHeight: 'calc(100vh - 36px)',
             border: '0',
             display: 'block',
-            background: 'transparent'
+            background: 'transparent',
+            flex: '0 0 auto'
         });
 
         return iframe;
@@ -215,7 +218,7 @@
 
         state.currentModalKey = modalKey;
 
-        const iframe = createIframe(config.html);
+        const iframe = createIframe(config);
         state.currentIframe = iframe;
         container.appendChild(iframe);
         showContainer(container);
@@ -233,6 +236,7 @@
             }
 
             setupModalClose(modalDocument);
+
 
             // Fecha pelo Escape também quando o foco está dentro do iframe.
             modalDocument.addEventListener('keydown', (event) => {
@@ -259,6 +263,8 @@
             closeModal();
         }, { once: true });
     }
+
+
 
     function openSimpleModal(config) {
         renderModal(config, 'simple', null);
