@@ -60,6 +60,11 @@ function normalizeGroupQualifiers(int $count): int
     return $count;
 }
 
+function normalizeGroupAssignmentMode(?string $mode): string
+{
+    return $mode === 'manual' ? 'manual' : 'auto';
+}
+
 function ensureSchemaEvolution(): void
 {
     static $checked = false;
@@ -77,12 +82,24 @@ function ensureSchemaEvolution(): void
            AND column_name = :column_name'
     );
 
+    $tableStmt = db()->prepare(
+        'SELECT COUNT(*)
+         FROM information_schema.tables
+         WHERE table_schema = DATABASE()
+           AND table_name = :table_name'
+    );
+
     $hasColumn = static function (string $table, string $column) use ($colStmt): bool {
         $colStmt->execute([
             'table_name' => $table,
             'column_name' => $column,
         ]);
         return (int)$colStmt->fetchColumn() > 0;
+    };
+
+    $hasTable = static function (string $table) use ($tableStmt): bool {
+        $tableStmt->execute(['table_name' => $table]);
+        return (int)$tableStmt->fetchColumn() > 0;
     };
 
     if (!$hasColumn('championships', 'organization_type')) {
@@ -106,10 +123,33 @@ function ensureSchemaEvolution(): void
         );
     }
 
+    if (!$hasColumn('championships', 'group_assignment_mode')) {
+        db()->exec(
+            "ALTER TABLE championships
+             ADD COLUMN group_assignment_mode ENUM('auto', 'manual') NOT NULL DEFAULT 'auto' AFTER group_qualifiers_count"
+        );
+    }
+
     if (!$hasColumn('matches', 'group_number')) {
         db()->exec(
             "ALTER TABLE matches
              ADD COLUMN group_number INT NULL AFTER match_number"
+        );
+    }
+
+    if (!$hasTable('championship_group_assignments')) {
+        db()->exec(
+            "CREATE TABLE championship_group_assignments (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                championship_id INT NOT NULL,
+                player_id INT NOT NULL,
+                group_number INT NOT NULL,
+                position INT NOT NULL DEFAULT 1,
+                UNIQUE KEY unique_group_player (championship_id, player_id),
+                UNIQUE KEY unique_group_position (championship_id, group_number, position),
+                CONSTRAINT fk_cga_championship FOREIGN KEY (championship_id) REFERENCES championships(id) ON DELETE CASCADE,
+                CONSTRAINT fk_cga_player FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
         );
     }
 }
@@ -165,6 +205,248 @@ function getChampionshipParticipants(int $championshipId): array
     );
     $stmt->execute(['championship_id' => $championshipId]);
     return $stmt->fetchAll();
+}
+
+function getManualGroupAssignments(int $championshipId): array
+{
+    $stmt = db()->prepare(
+        'SELECT *
+         FROM championship_group_assignments
+         WHERE championship_id = :championship_id
+         ORDER BY group_number ASC, position ASC, id ASC'
+    );
+    $stmt->execute(['championship_id' => $championshipId]);
+    $rows = $stmt->fetchAll();
+
+    $groups = [];
+    foreach ($rows as $row) {
+        $groupNumber = (int)$row['group_number'];
+        $groups[$groupNumber][] = (int)$row['player_id'];
+    }
+
+    foreach ($groups as $groupNumber => $players) {
+        $groups[$groupNumber] = array_values($players);
+    }
+
+    ksort($groups);
+    return $groups;
+}
+
+function saveManualGroupAssignments(int $championshipId, array $groups): array
+{
+    $championship = getChampionship($championshipId);
+    if (!$championship) {
+        return [false, 'Campeonato não encontrado.'];
+    }
+
+    if ($championship['status'] !== 'setup') {
+        return [false, 'As chaves manuais só podem ser alteradas enquanto o campeonato estiver em configuração.'];
+    }
+
+    $participants = getChampionshipParticipants($championshipId);
+    $participantIds = array_map(static fn(array $p): int => (int)$p['id'], $participants);
+
+    if ($participants === []) {
+        return [false, 'Cadastre participantes antes de definir as chaves.'];
+    }
+
+    $normalizedGroups = [];
+    $seen = [];
+    $missing = [];
+
+    foreach ($groups as $groupKey => $groupPlayers) {
+        if (!is_array($groupPlayers)) {
+            continue;
+        }
+
+        $groupNumber = max(1, (int)$groupKey);
+        $normalizedGroup = [];
+
+        foreach ($groupPlayers as $playerId) {
+            $playerId = (int)$playerId;
+            if ($playerId <= 0) {
+                continue;
+            }
+
+            if (!in_array($playerId, $participantIds, true)) {
+                $missing[] = $playerId;
+                continue;
+            }
+
+            if (isset($seen[$playerId])) {
+                return [false, 'O participante #' . $playerId . ' não pode aparecer em mais de uma chave.'];
+            }
+
+            $seen[$playerId] = true;
+            $normalizedGroup[] = $playerId;
+        }
+
+        if ($normalizedGroup !== []) {
+            $normalizedGroups[$groupNumber] = array_values($normalizedGroup);
+        }
+    }
+
+    if ($missing !== []) {
+        return [false, 'Há participantes que não pertencem a este campeonato.'];
+    }
+
+    $missingPlayers = array_values(array_diff($participantIds, array_keys($seen)));
+    if ($missingPlayers !== []) {
+        $missingNames = [];
+        foreach ($participants as $participant) {
+            if (in_array((int)$participant['id'], $missingPlayers, true)) {
+                $missingNames[] = $participant['name'];
+            }
+        }
+
+        return [false, 'Os participantes sem chave devem ser atribuídos antes de salvar: ' . implode(', ', $missingNames) . '.'];
+    }
+
+    $pdo = db();
+    try {
+        $pdo->beginTransaction();
+
+        $pdo->prepare('DELETE FROM championship_group_assignments WHERE championship_id = :championship_id')
+            ->execute(['championship_id' => $championshipId]);
+        $pdo->prepare('DELETE FROM matches WHERE championship_id = :championship_id')
+            ->execute(['championship_id' => $championshipId]);
+
+        $insert = $pdo->prepare(
+            'INSERT INTO championship_group_assignments (championship_id, player_id, group_number, position)
+             VALUES (:championship_id, :player_id, :group_number, :position)'
+        );
+
+        $positionOrder = 1;
+        foreach ($normalizedGroups as $groupNumber => $playerIds) {
+            foreach ($playerIds as $position => $playerId) {
+                $insert->execute([
+                    'championship_id' => $championshipId,
+                    'player_id' => $playerId,
+                    'group_number' => $groupNumber,
+                    'position' => $position + 1,
+                ]);
+            }
+            $positionOrder++;
+        }
+
+        $pdo->prepare(
+            'UPDATE championships
+             SET group_assignment_mode = :group_assignment_mode
+             WHERE id = :id'
+        )->execute([
+            'group_assignment_mode' => 'manual',
+            'id' => $championshipId,
+        ]);
+
+        $pdo->commit();
+        return [true, 'Chaves manuais salvas com sucesso.'];
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        return [false, 'Erro ao salvar chaves manuais: ' . $e->getMessage()];
+    }
+}
+
+function generateManualGroupStage(int $championshipId, array $manualGroups = []): array
+{
+    $championship = getChampionship($championshipId);
+    if (!$championship) {
+        return [false, 'Campeonato não encontrado.'];
+    }
+
+    if ($championship['status'] !== 'setup') {
+        return [false, 'Os confrontos só podem ser gerados enquanto o campeonato estiver em configuração.'];
+    }
+
+    $groups = $manualGroups !== [] ? $manualGroups : getManualGroupAssignments($championshipId);
+    if ($groups === []) {
+        return [false, 'Nenhuma chave manual salva para este campeonato.'];
+    }
+
+    $participantIds = array_map(static fn(array $p): int => (int)$p['id'], getChampionshipParticipants($championshipId));
+    $assigned = [];
+    foreach ($groups as $groupNumber => $playerIds) {
+        foreach ($playerIds as $playerId) {
+            $playerId = (int)$playerId;
+            if ($playerId <= 0) {
+                continue;
+            }
+
+            if (!in_array($playerId, $participantIds, true)) {
+                return [false, 'Uma das chaves contém participantes que não pertencem ao campeonato.'];
+            }
+            if (isset($assigned[$playerId])) {
+                return [false, 'O participante #' . $playerId . ' foi encontrado em mais de uma chave.'];
+            }
+            $assigned[$playerId] = true;
+        }
+    }
+
+    $missingPlayers = array_values(array_diff($participantIds, array_keys($assigned)));
+    if ($missingPlayers !== []) {
+        return [false, 'Todos os participantes precisam estar em uma chave antes de gerar os confrontos.'];
+    }
+
+    $pdo = db();
+    try {
+        $pdo->beginTransaction();
+        $pdo->prepare('DELETE FROM matches WHERE championship_id = :championship_id')->execute([
+            'championship_id' => $championshipId,
+        ]);
+
+        foreach ($groups as $groupNumber => $groupPlayers) {
+            $groupPlayers = array_values(array_filter(array_map('intval', $groupPlayers), static fn(int $playerId): bool => $playerId > 0));
+            if ($groupPlayers === []) {
+                continue;
+            }
+
+            $matchNumber = 1;
+            foreach ($groupPlayers as $i => $firstPlayerId) {
+                for ($j = $i + 1; $j < count($groupPlayers); $j++) {
+                    $secondPlayerId = $groupPlayers[$j];
+
+                    $pdo->prepare(
+                        'INSERT INTO matches (
+                            championship_id,
+                            round_number,
+                            match_number,
+                            group_number,
+                            player1_id,
+                            player2_id,
+                            status
+                        ) VALUES (
+                            :championship_id,
+                            :round_number,
+                            :match_number,
+                            :group_number,
+                            :player1_id,
+                            :player2_id,
+                            :status
+                        )'
+                    )->execute([
+                        'championship_id' => $championshipId,
+                        'round_number' => 1,
+                        'match_number' => $matchNumber,
+                        'group_number' => $groupNumber,
+                        'player1_id' => $firstPlayerId,
+                        'player2_id' => $secondPlayerId,
+                        'status' => 'pending',
+                    ]);
+
+                    $matchNumber++;
+                }
+            }
+        }
+
+        $pdo->commit();
+        return [true, 'Confrontos gerados com base nas chaves manuais.'];
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        return [false, 'Erro ao gerar fase de grupos manuais: ' . $e->getMessage()];
+    }
 }
 
 function getMatchesByChampionship(int $championshipId): array
@@ -346,6 +628,16 @@ function generateGroupStageSuggestion(int $championshipId): array
     $participants = getChampionshipParticipants($championshipId);
     if (count($participants) < 3) {
         return [false, 'Para fase de grupos, é necessário pelo menos 3 participantes.'];
+    }
+
+    $assignmentMode = normalizeGroupAssignmentMode($championship['group_assignment_mode'] ?? 'auto');
+    if ($assignmentMode === 'manual') {
+        $manualGroups = getManualGroupAssignments($championshipId);
+        if ($manualGroups === []) {
+            return [false, 'Defina as chaves manuais antes de gerar os confrontos.'];
+        }
+
+        return generateManualGroupStage($championshipId, $manualGroups);
     }
 
     $preferredSize = normalizeGroupSize((int)($championship['preferred_group_size'] ?? 4));

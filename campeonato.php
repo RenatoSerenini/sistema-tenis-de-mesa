@@ -51,9 +51,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $pdo->prepare('DELETE FROM matches WHERE championship_id = :championship_id')
                 ->execute(['championship_id' => $championshipId]);
+            $pdo->prepare('DELETE FROM championship_group_assignments WHERE championship_id = :championship_id')
+                ->execute(['championship_id' => $championshipId]);
+            $pdo->prepare(
+                'UPDATE championships SET group_assignment_mode = :group_assignment_mode WHERE id = :id'
+            )->execute([
+                'group_assignment_mode' => 'auto',
+                'id' => $championshipId,
+            ]);
 
             $pdo->commit();
             $message = 'Participantes atualizados. Gere a chave novamente para continuar.';
+        }
+
+        if ($action === 'save_manual_groups') {
+            if ($championship['organization_type'] !== 'groups') {
+                throw new RuntimeException('A definição manual de chaves é válida apenas para campeonatos em fase de grupos.');
+            }
+
+            $groups = $_POST['groups'] ?? [];
+            if (!is_array($groups)) {
+                throw new RuntimeException('Estrutura de chaves inválida.');
+            }
+
+            [$ok, $msg] = saveManualGroupAssignments($championshipId, $groups);
+            if (!$ok) {
+                throw new RuntimeException($msg);
+            }
+
+            $message = $msg;
         }
 
         if ($action === 'generate_bracket') {
@@ -178,6 +204,8 @@ $pageTitle = 'Campeonato';
 $allPlayers = db()->query('SELECT * FROM players ORDER BY name')->fetchAll();
 $participants = getChampionshipParticipants($championshipId);
 $participantIds = array_map(static fn(array $p): int => (int)$p['id'], $participants);
+$manualGroups = getManualGroupAssignments($championshipId);
+$groupAssignmentMode = normalizeGroupAssignmentMode($championship['group_assignment_mode'] ?? 'auto');
 
 $matches = getMatchesByChampionship($championshipId);
 $groupStageMatches = array_values(array_filter(
@@ -304,10 +332,22 @@ require __DIR__ . '/includes/header.php';
     <div class="card">
         <h3>Controle da chave</h3>
         <?php if ($championship['status'] === 'setup'): ?>
-            <form method="post">
-                <input type="hidden" name="action" value="generate_bracket">
-                <button type="submit"><?= $isGroupStage ? 'Gerar confrontos sugeridos por grupo' : 'Gerar chave sugerida' ?></button>
-            </form>
+            <?php if ($isGroupStage): ?>
+                <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:12px;">
+                    <span class="badge <?= h($groupAssignmentMode === 'manual' ? 'manual' : 'auto') ?>">
+                        <?= h($groupAssignmentMode === 'manual' ? 'Manual' : 'Automático') ?>
+                    </span>
+                </div>
+                <form method="post">
+                    <input type="hidden" name="action" value="generate_bracket">
+                    <button type="submit"><?= $groupAssignmentMode === 'manual' ? 'Gerar confrontos com as chaves salvas' : 'Gerar confrontos sugeridos por grupo' ?></button>
+                </form>
+            <?php else: ?>
+                <form method="post">
+                    <input type="hidden" name="action" value="generate_bracket">
+                    <button type="submit">Gerar chave sugerida</button>
+                </form>
+            <?php endif; ?>
 
             <?php if ($matches): ?>
                 <form method="post" style="margin-top:10px;">
@@ -320,6 +360,325 @@ require __DIR__ . '/includes/header.php';
         <?php endif; ?>
     </div>
 </section>
+
+<?php if ($isGroupStage && $championship['status'] === 'setup'): ?>
+<section class="card" style="margin-top:16px;">
+    <h3>Definição manual de chaves</h3>
+    <p>Escolha a opção <strong>Definir chaves manualmente</strong> no cadastro do campeonato e distribua os participantes abaixo para cada grupo, preservando a ordem interna.</p>
+
+    <form method="post" id="manual-groups-form">
+        <input type="hidden" name="action" value="save_manual_groups">
+
+        <div style="display:grid; grid-template-columns: minmax(220px, 1.1fr) minmax(260px, 2fr); gap:16px; margin-top:12px;">
+            <div class="card" style="padding:12px; margin:0; background:#f7faf8; border:1px solid #dfe9e2;">
+                <h4>Participantes disponíveis</h4>
+                <div id="available-players" style="display:flex; flex-direction:column; gap:8px; min-height:120px;">
+                    <?php foreach ($participants as $player): ?>
+                        <?php $alreadyAssigned = false; foreach ($manualGroups as $groupPlayers): foreach ($groupPlayers as $assignedId): if ((int)$assignedId === (int)$player['id']) { $alreadyAssigned = true; break 2; } endforeach; endforeach; ?>
+                        <div class="participant-item" data-player-id="<?= (int)$player['id'] ?>" <?= $alreadyAssigned ? 'hidden' : '' ?>>
+                            <span><?= h($player['name']) ?></span>
+                            <select aria-label="Grupo para <?= h($player['name']) ?>" data-select-group>
+                                <option value="">Selecionar grupo</option>
+                                <?php for ($g = 1; $g <= 8; $g++): ?>
+                                    <option value="<?= $g ?>">Chave <?= chr(64 + $g) ?></option>
+                                <?php endfor; ?>
+                            </select>
+                            <button type="button" class="btn-small" data-add-player="<?= (int)$player['id'] ?>">Adicionar</button>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+
+            <div class="card" style="padding:12px; margin:0; background:#f7faf8; border:1px solid #dfe9e2;">
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:12px;">
+                    <h4 style="margin:0;">Chaves</h4>
+                    <button type="button" id="add-group-btn" class="btn-small secondary">Adicionar chave</button>
+                </div>
+                <div id="groups-container" style="display:flex; flex-direction:column; gap:12px;"></div>
+            </div>
+        </div>
+
+        <div style="margin-top:16px; display:flex; justify-content:flex-end;">
+            <button type="submit">Salvar configuração das chaves</button>
+        </div>
+    </form>
+</section>
+
+<script>
+(function () {
+    const groupsContainer = document.getElementById('groups-container');
+    const addGroupBtn = document.getElementById('add-group-btn');
+    const form = document.getElementById('manual-groups-form');
+    const availablePlayersWrap = document.getElementById('available-players');
+    const playerIndex = <?php echo json_encode(array_map(static fn(array $p): array => ['id' => (int)$p['id'], 'name' => $p['name']], $participants), JSON_UNESCAPED_UNICODE); ?>;
+    const initialGroups = <?php echo json_encode($manualGroups, JSON_UNESCAPED_UNICODE); ?>;
+
+    const groupLabel = (number) => {
+        const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        return alphabet[(number - 1) % 26] || 'G' + number;
+    };
+
+    const getPlayerName = (playerId) => {
+        const player = playerIndex.find((item) => Number(item.id) === Number(playerId));
+        return player ? player.name : 'Jogador';
+    };
+
+    const createGroup = (groupNumber, assignedIds = []) => {
+        const group = document.createElement('div');
+        group.className = 'group-editor';
+        group.dataset.groupNumber = String(groupNumber);
+        group.style.border = '1px solid #dfe9e2';
+        group.style.background = '#fff';
+        group.style.borderRadius = '8px';
+        group.style.padding = '10px';
+
+        const header = document.createElement('div');
+        header.style.display = 'flex';
+        header.style.justifyContent = 'space-between';
+        header.style.alignItems = 'center';
+        header.style.marginBottom = '8px';
+
+        const title = document.createElement('strong');
+        title.textContent = 'Chave ' + groupLabel(groupNumber);
+        header.appendChild(title);
+
+        const removeButton = document.createElement('button');
+        removeButton.type = 'button';
+        removeButton.textContent = 'Remover chave';
+        removeButton.className = 'btn-small btn-secondary';
+        removeButton.addEventListener('click', () => {
+            if (group.querySelectorAll('[data-player-item]').length === 0) {
+                group.remove();
+                syncGroupFields();
+                return;
+            }
+            const confirmed = window.confirm('A chave contém participantes. Deseja remover a chave e devolver os jogadores para a lista disponível?');
+            if (!confirmed) return;
+            Array.from(group.querySelectorAll('[data-player-item]')).forEach((item) => {
+                const playerId = item.dataset.playerId;
+                const available = document.querySelector('[data-player-id="' + playerId + '"]');
+                if (available) {
+                    available.hidden = false;
+                }
+            });
+            group.remove();
+            syncGroupFields();
+        });
+        header.appendChild(removeButton);
+        group.appendChild(header);
+
+        const assignedList = document.createElement('div');
+        assignedList.style.display = 'flex';
+        assignedList.style.flexDirection = 'column';
+        assignedList.style.gap = '6px';
+
+        if (!assignedIds.length) {
+            const empty = document.createElement('div');
+            empty.className = 'muted';
+            empty.textContent = 'Nenhum participante nesta chave';
+            empty.style.fontSize = '13px';
+            empty.style.color = '#6b7280';
+            assignedList.appendChild(empty);
+        }
+
+        assignedIds.forEach((playerId) => {
+            const row = document.createElement('div');
+            row.dataset.playerItem = 'true';
+            row.dataset.playerId = String(playerId);
+            row.style.display = 'flex';
+            row.style.alignItems = 'center';
+            row.style.gap = '8px';
+            row.style.padding = '6px 8px';
+            row.style.borderRadius = '6px';
+            row.style.border = '1px solid #edf2f0';
+            row.style.background = '#fbfdfc';
+
+            const name = document.createElement('span');
+            name.textContent = getPlayerName(playerId);
+            name.style.flex = '1';
+            row.appendChild(name);
+
+            const up = document.createElement('button');
+            up.type = 'button';
+            up.textContent = '↑';
+            up.title = 'Mover para cima';
+            up.addEventListener('click', () => movePlayerBetweenGroups(groupNumber, playerId, -1));
+
+            const down = document.createElement('button');
+            down.type = 'button';
+            down.textContent = '↓';
+            down.title = 'Mover para baixo';
+            down.addEventListener('click', () => movePlayerBetweenGroups(groupNumber, playerId, 1));
+
+            const remove = document.createElement('button');
+            remove.type = 'button';
+            remove.textContent = 'Remover';
+            remove.addEventListener('click', () => {
+                row.remove();
+                const available = document.querySelector('[data-player-id="' + playerId + '"]');
+                if (available) {
+                    available.hidden = false;
+                }
+                syncGroupFields();
+            });
+
+            [up, down, remove].forEach((button) => {
+                button.className = 'btn-small';
+                row.appendChild(button);
+            });
+
+            assignedList.appendChild(row);
+        });
+
+        group.appendChild(assignedList);
+        return group;
+    };
+
+    const syncGroupFields = () => {
+        const groups = Array.from(groupsContainer.querySelectorAll('[data-group-number]'));
+        const fieldMap = new Map();
+        groups.forEach((groupNode, idx) => {
+            const groupNumber = Number(groupNode.dataset.groupNumber);
+            const rowIds = Array.from(groupNode.querySelectorAll('[data-player-item]')).map((row) => Number(row.dataset.playerId));
+            fieldMap.set(groupNumber, rowIds);
+        });
+
+        Array.from(form.querySelectorAll('input[data-group-field]')).forEach((el) => el.remove());
+        fieldMap.forEach((players, groupNumber) => {
+            players.forEach((playerId) => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'groups[' + groupNumber + '][]';
+                input.value = String(playerId);
+                input.dataset.groupField = 'true';
+                form.appendChild(input);
+            });
+        });
+    };
+
+    const movePlayerBetweenGroups = (groupNumber, playerId, direction) => {
+        const groupNode = groupsContainer.querySelector('[data-group-number="' + groupNumber + '"]');
+        if (!groupNode) return;
+        const list = groupNode.querySelectorAll('[data-player-item]');
+        const rows = Array.from(list);
+        const index = rows.findIndex((row) => Number(row.dataset.playerId) === Number(playerId));
+        if (index === -1) return;
+        const targetIndex = index + direction;
+        if (targetIndex < 0 || targetIndex >= rows.length) return;
+        const current = rows[index];
+        const next = rows[targetIndex];
+        const listContainer = groupNode.lastElementChild;
+        listContainer.insertBefore(next, current);
+        syncGroupFields();
+    };
+
+    const addPlayerToGroup = (playerId, groupNumber) => {
+        const targetGroup = groupsContainer.querySelector('[data-group-number="' + groupNumber + '"]');
+        if (!targetGroup) return;
+        const row = document.createElement('div');
+        row.dataset.playerItem = 'true';
+        row.dataset.playerId = String(playerId);
+        row.style.display = 'flex';
+        row.style.alignItems = 'center';
+        row.style.gap = '8px';
+        row.style.padding = '6px 8px';
+        row.style.borderRadius = '6px';
+        row.style.border = '1px solid #edf2f0';
+        row.style.background = '#fbfdfc';
+
+        const label = document.createElement('span');
+        label.textContent = getPlayerName(playerId);
+        label.style.flex = '1';
+        row.appendChild(label);
+
+        const up = document.createElement('button');
+        up.type = 'button';
+        up.textContent = '↑';
+        up.className = 'btn-small';
+        up.addEventListener('click', () => movePlayerBetweenGroups(groupNumber, playerId, -1));
+
+        const down = document.createElement('button');
+        down.type = 'button';
+        down.textContent = '↓';
+        down.className = 'btn-small';
+        down.addEventListener('click', () => movePlayerBetweenGroups(groupNumber, playerId, 1));
+
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.textContent = 'Remover';
+        remove.className = 'btn-small';
+        remove.addEventListener('click', () => {
+            row.remove();
+            const available = document.querySelector('[data-player-id="' + playerId + '"]');
+            if (available) {
+                available.hidden = false;
+            }
+            syncGroupFields();
+        });
+
+        [up, down, remove].forEach((button) => row.appendChild(button));
+        const emptyPlaceholder = targetGroup.querySelector('.muted');
+        if (emptyPlaceholder) emptyPlaceholder.remove();
+        const listContainer = targetGroup.lastElementChild;
+        if (listContainer) {
+            listContainer.appendChild(row);
+        }
+        const available = document.querySelector('[data-player-id="' + playerId + '"]');
+        if (available) {
+            available.hidden = true;
+        }
+        syncGroupFields();
+    };
+
+    const initializeGroups = () => {
+        const groupNumbers = Object.keys(initialGroups).length ? Object.keys(initialGroups).map((key) => Number(key)).sort((a, b) => a - b) : [1, 2, 3, 4];
+        groupsContainer.innerHTML = '';
+        groupNumbers.forEach((groupNumber) => {
+            const group = createGroup(groupNumber, initialGroups[groupNumber] || []);
+            groupsContainer.appendChild(group);
+        });
+        if (!groupsContainer.children.length) {
+            for (let i = 1; i <= 4; i++) {
+                groupsContainer.appendChild(createGroup(i, []));
+            }
+        }
+        syncGroupFields();
+    };
+
+    addGroupBtn.addEventListener('click', () => {
+        const currentGroups = Array.from(groupsContainer.querySelectorAll('[data-group-number]')).map((node) => Number(node.dataset.groupNumber));
+        const nextNumber = currentGroups.length ? Math.max(...currentGroups) + 1 : 1;
+        groupsContainer.appendChild(createGroup(nextNumber, []));
+        syncGroupFields();
+    });
+
+    availablePlayersWrap.querySelectorAll('[data-add-player]').forEach((button) => {
+        button.addEventListener('click', () => {
+            const playerId = button.dataset.addPlayer;
+            const groupSelect = button.parentElement.querySelector('[data-select-group]');
+            const groupNumber = groupSelect.value ? Number(groupSelect.value) : 0;
+            if (!groupNumber) {
+                window.alert('Selecione uma chave antes de adicionar o participante.');
+                return;
+            }
+            const targetGroup = groupsContainer.querySelector('[data-group-number="' + groupNumber + '"]');
+            if (!targetGroup) {
+                const guest = createGroup(groupNumber, []);
+                groupsContainer.appendChild(guest);
+            }
+            addPlayerToGroup(playerId, groupNumber);
+            button.parentElement.hidden = true;
+            groupSelect.value = '';
+        });
+    });
+
+    initializeGroups();
+    form.addEventListener('submit', () => {
+        syncGroupFields();
+    });
+})();
+</script>
+<?php endif; ?>
 
 <?php if (!$isGroupStage && $championship['status'] === 'setup' && $firstRound): ?>
 <section class="card" style="margin-top:16px;">

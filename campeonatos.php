@@ -17,20 +17,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $organizationType = normalizeChampionshipFormat($_POST['organization_type'] ?? 'knockout');
             $preferredGroupSize = normalizeGroupSize((int)($_POST['preferred_group_size'] ?? 4));
             $groupQualifiersCount = normalizeGroupQualifiers((int)($_POST['group_qualifiers_count'] ?? 2));
+            $groupAssignmentMode = normalizeGroupAssignmentMode($_POST['group_assignment_mode'] ?? 'auto');
 
             if ($name === '' || $date === '') {
                 throw new RuntimeException('Nome e data são obrigatórios.');
             }
 
             db()->prepare(
-                'INSERT INTO championships (name, championship_date, organization_type, preferred_group_size, group_qualifiers_count, status)
-                 VALUES (:name, :championship_date, :organization_type, :preferred_group_size, :group_qualifiers_count, :status)'
+                'INSERT INTO championships (name, championship_date, organization_type, preferred_group_size, group_qualifiers_count, group_assignment_mode, status)
+                 VALUES (:name, :championship_date, :organization_type, :preferred_group_size, :group_qualifiers_count, :group_assignment_mode, :status)'
             )->execute([
                 'name' => $name,
                 'championship_date' => $date,
                 'organization_type' => $organizationType,
                 'preferred_group_size' => $organizationType === 'groups' ? $preferredGroupSize : null,
                 'group_qualifiers_count' => $organizationType === 'groups' ? $groupQualifiersCount : null,
+                'group_assignment_mode' => $groupAssignmentMode,
                 'status' => 'setup',
             ]);
 
@@ -44,6 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $organizationType = normalizeChampionshipFormat($_POST['organization_type'] ?? 'knockout');
             $preferredGroupSize = normalizeGroupSize((int)($_POST['preferred_group_size'] ?? 4));
             $groupQualifiersCount = normalizeGroupQualifiers((int)($_POST['group_qualifiers_count'] ?? 2));
+            $groupAssignmentMode = normalizeGroupAssignmentMode($_POST['group_assignment_mode'] ?? 'auto');
 
             if ($id <= 0 || $name === '' || $date === '') {
                 throw new RuntimeException('Dados inválidos para atualização.');
@@ -77,7 +80,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                      championship_date = :championship_date,
                      organization_type = :organization_type,
                      preferred_group_size = :preferred_group_size,
-                     group_qualifiers_count = :group_qualifiers_count
+                     group_qualifiers_count = :group_qualifiers_count,
+                     group_assignment_mode = :group_assignment_mode
                  WHERE id = :id'
             )
                 ->execute([
@@ -86,6 +90,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'organization_type' => $organizationType,
                     'preferred_group_size' => $organizationType === 'groups' ? $preferredGroupSize : null,
                     'group_qualifiers_count' => $organizationType === 'groups' ? $groupQualifiersCount : null,
+                    'group_assignment_mode' => $groupAssignmentMode,
                     'id' => $id,
                 ]);
 
@@ -194,6 +199,14 @@ require __DIR__ . '/includes/header.php';
             <label>Classificados por grupo para o mata-mata
                 <input type="number" name="group_qualifiers_count" min="1" max="8"
                        value="<?= h((string)($editChampionship['group_qualifiers_count'] ?? 2)) ?>">
+            </label>
+
+            <label>Modo da geração dos grupos
+                <select name="group_assignment_mode" required>
+                    <?php $selectedGroupMode = normalizeGroupAssignmentMode($editChampionship['group_assignment_mode'] ?? 'auto'); ?>
+                    <option value="auto" <?= $selectedGroupMode === 'auto' ? 'selected' : '' ?>>Sorteio automático</option>
+                    <option value="manual" <?= $selectedGroupMode === 'manual' ? 'selected' : '' ?>>Definir chaves manualmente</option>
+                </select>
             </label>
 
             <button type="submit"><?= $editChampionship ? 'Salvar alterações' : 'Criar campeonato' ?></button>

@@ -1497,6 +1497,12 @@ tbody tr:last-child td {
     color: #92400e;
 }
 
+.badge.auto,
+.badge.manual {
+    background: #eafaf2;
+    color: #0f6d4d;
+}
+
 .badge.confirmed {
     background: #e0f2fe;
     color: #075985;
